@@ -4,6 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from model import InceptionCustom
 
 # === Parametry ===
 data_dir = "dataset"
@@ -27,17 +28,6 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 # === Model ===
 from torchvision.models import inception_v3
-
-class InceptionCustom(nn.Module):
-    def __init__(self, num_classes):
-        super().__init__()
-        self.base = inception_v3(pretrained=True, aux_logits=False)
-        self.base.fc = nn.Identity()
-        self.classifier = nn.Linear(2048, num_classes)
-
-    def forward(self, x):
-        x = self.base(x)
-        return self.classifier(x)
 
 model = InceptionCustom(num_classes).to(device)
 

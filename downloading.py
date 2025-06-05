@@ -7,14 +7,22 @@ import ollama
 import tempfile
 import time
 
+
+model_name = "minicpm-v:8b"
+parquet_file = "train-00000-of-00330.parquet"
+
+
 # Ścieżki wyjściowe
 INSIDE_DIR = './dataset/inside'
 OUTSIDE_DIR = './dataset/outside'
+not_known_DIR = './dataset/not_known'
 os.makedirs(INSIDE_DIR, exist_ok=True)
 os.makedirs(OUTSIDE_DIR, exist_ok=True)
 
+
+
 # Wczytaj Parquet do DataFrame
-df = pd.read_parquet('train-00000-of-00330.parquet')
+df = pd.read_parquet(parquet_file)
 
 headers = {
     "User-Agent": "MyWITScript/1.0 (mieszkowskifff@gmail.com)"
@@ -31,19 +39,19 @@ def classify_and_save(image_url, caption, idx):
         return
 
     try:
-        prompt = f"""You are an image scene classifier. Based on the image and the following caption, classify the scene strictly as "inside" or "outside".
+        prompt = f"""You are an image scene classifier. Based on the image and the following caption, classify the scene strictly as "inside", "outside" or "not known".
 
 Caption: "{caption}"
 
-Respond only with: inside or outside.
+Respond only with: "inside", "outside" or "not known".
 """
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             image.save(tmp.name)
             image_path = tmp.name
 
         result = ollama.chat(
-            model="llava:7b",
-            messages=[{
+            model = model_name,
+            messages = [{
                 "role": "user",
                 "content": prompt,
                 "images": [image_path]
@@ -55,6 +63,8 @@ Respond only with: inside or outside.
             out_path = os.path.join(INSIDE_DIR, f"{idx}_{time.time()}.jpg")
         elif reply == "outside":
             out_path = os.path.join(OUTSIDE_DIR, f"{idx}_{time.time()}.jpg")
+        elif reply == "not known":
+            out_path = os.path.join(not_known_DIR, f"{idx}_{time.time()}.jpg")
         else:
             print(f"[{idx}] Nieoczekiwana odpowiedź modelu: {reply}")
             return
