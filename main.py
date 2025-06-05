@@ -5,25 +5,44 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from model import InceptionCustom
+import torchsummary
+from torch.utils.data import random_split
+
+
+torch.manual_seed(42)
 
 data_dir = "./dataset"
-batch_size = 32
+batch_size = 64
 num_epochs = 10
 learning_rate = 1e-4
 num_classes = 2
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+
 transform = transforms.Compose([
-    transforms.Resize((320, 320)),  # min. 299x299 dla Inception
+    transforms.Resize((320, 320)),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize(mean = [0.5]*3, std = [0.5]*3),
+    transforms.Normalize(mean = [0.5] * 3, std = [0.5] * 3),
 ])
 
-train_dataset = datasets.ImageFolder(root = data_dir, transform=transform)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+dataset = datasets.ImageFolder(root = data_dir, transform = transform)
+
+val_split = 0.2
+total_size = len(dataset)
+val_size = int(total_size * val_split)
+train_size = total_size - val_size
+
+train_dataset_split, val_dataset_split = random_split(dataset, [train_size, val_size])
+
+train_loader = DataLoader(train_dataset_split, batch_size = batch_size, shuffle = True, num_workers = 4)
+val_loader = DataLoader(val_dataset_split, batch_size = batch_size, shuffle = False, num_workers = 4)
 
 model = InceptionCustom(num_classes).to(device)
+torchsummary.summary(model, input_size=(3, 320, 320), device = device.type)
+
+model.freeze_base()
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -43,12 +62,18 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
 
-        running_loss += loss.item() * images.size(0)
-        _, predicted = torch.max(outputs, 1)
-        correct += (predicted == labels).sum().item()
-        total += labels.size(0)
+    with torch.no_grad():
+        model.eval()
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    accuracy = correct / total
 
-    train_loss = running_loss / total
-    train_acc = correct / total
+    print(f"Epoch {epoch+1}: Valid Loss = {loss:.4f}, Valid Acc = {accuracy:.4f}")
 
-    print(f"Epoch {epoch+1}: Train Loss = {train_loss:.4f}, Train Acc = {train_acc:.4f}")
+    torch.save(model.state_dict(), f"model_epoch_{epoch+1}.pth")

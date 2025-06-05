@@ -2,3 +2,4 @@ dataset/
 *.parquet
 *.jpg
 __pycache__/
+*.pth
