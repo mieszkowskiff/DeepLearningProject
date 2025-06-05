@@ -1,2 +1,4 @@
 dataset/
 *.parquet
+*.jpg
+__pycache__/
