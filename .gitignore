@@ -1,5 +1,6 @@
 dataset/
 *.parquet
 *.jpg
+*.jpeg
 __pycache__/
 *.pth
